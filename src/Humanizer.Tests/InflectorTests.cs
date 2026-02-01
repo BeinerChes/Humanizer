@@ -119,6 +119,9 @@ public class InflectorTests
     [InlineData("customer-first-name", "CustomerFirstName")]
     [InlineData("_customer-first-name", "CustomerFirstName")]
     [InlineData(" customer__first--name", "CustomerFirstName")]
+    [InlineData("admin_area_level_1_long_name", "AdminAreaLevel1LongName")]
+    [InlineData("test_1_2_3_value", "Test123Value")]
+    [InlineData("prop_1", "Prop1")]
     public void Pascalize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Pascalize());
 
@@ -133,6 +136,8 @@ public class InflectorTests
     [InlineData("customer name", "customerName")]
     [InlineData("customer   name", "customerName")]
     [InlineData("", "")]
+    [InlineData("admin_area_level_1_long_name", "adminAreaLevel1LongName")]
+    [InlineData("prop_1", "prop1")]
     public void Camelize(string input, string expectedOutput) =>
         Assert.Equal(expectedOutput, input.Camelize());
 
