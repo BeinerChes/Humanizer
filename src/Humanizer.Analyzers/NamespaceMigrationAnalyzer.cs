@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using System.Collections.Immutable;
 
 using Microsoft.CodeAnalysis;
@@ -27,23 +26,19 @@ public class NamespaceMigrationAnalyzer : DiagnosticAnalyzer
         isEnabledByDefault: true,
         description: Description);
 
-    // All the old namespaces that were consolidated in v3
-    // Using FrozenSet for optimal lookup performance
-    private static readonly FrozenSet<string> OldNamespaces = FrozenSet.ToFrozenSet(
-        [
-            "Humanizer.Bytes",
-            "Humanizer.Localisation",
-            "Humanizer.Localisation.Formatters",
-            "Humanizer.Localisation.NumberToWords",
-            "Humanizer.DateTimeHumanizeStrategy",
-            "Humanizer.Configuration",
-            "Humanizer.Localisation.DateToOrdinalWords",
-            "Humanizer.Localisation.Ordinalizers",
-            "Humanizer.Inflections",
-            "Humanizer.Localisation.CollectionFormatters",
-            "Humanizer.Localisation.TimeToClockNotation"
-        ],
-        StringComparer.Ordinal);
+    private static readonly ImmutableHashSet<string> OldNamespaces = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "Humanizer.Bytes",
+        "Humanizer.Localisation",
+        "Humanizer.Localisation.Formatters",
+        "Humanizer.Localisation.NumberToWords",
+        "Humanizer.DateTimeHumanizeStrategy",
+        "Humanizer.Configuration",
+        "Humanizer.Localisation.DateToOrdinalWords",
+        "Humanizer.Localisation.Ordinalizers",
+        "Humanizer.Inflections",
+        "Humanizer.Localisation.CollectionFormatters",
+        "Humanizer.Localisation.TimeToClockNotation");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
 
@@ -78,14 +73,9 @@ public class NamespaceMigrationAnalyzer : DiagnosticAnalyzer
         if (context.Node is not QualifiedNameSyntax qualifiedName)
             return;
 
-        // Skip if this is part of a using directive (already handled above)
-        // Check all ancestors, not just immediate parent, because nested qualified names
-        // will have another qualified name as parent
         if (qualifiedName.Ancestors().OfType<UsingDirectiveSyntax>().Any())
             return;
 
-        // Skip if this qualified name has a parent qualified name that also matches
-        // We only want to report the outermost qualified name to avoid duplicate diagnostics
         if (qualifiedName.Parent is QualifiedNameSyntax parentQualified)
         {
             var parentName = parentQualified.ToString();
@@ -95,8 +85,7 @@ public class NamespaceMigrationAnalyzer : DiagnosticAnalyzer
 
         var fullName = qualifiedName.ToString();
 
-        // Check if any old namespace is used as a prefix
-        var matchingNamespace = OldNamespaces.FirstOrDefault(ns => IsNamespaceMatch(fullName, ns));
+        var matchingNamespace = FindMatchingNamespace(fullName);
         if (matchingNamespace != null)
         {
             var diagnostic = Diagnostic.Create(Rule, qualifiedName.GetLocation(), matchingNamespace);
@@ -104,13 +93,21 @@ public class NamespaceMigrationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static bool IsNamespaceMatch(ReadOnlySpan<char> fullName, ReadOnlySpan<char> oldNamespace)
+    private static string? FindMatchingNamespace(string fullName)
     {
-        // Exact match
-        if (fullName.Length == oldNamespace.Length)
-            return fullName.Equals(oldNamespace, StringComparison.Ordinal);
+        foreach (var ns in OldNamespaces)
+        {
+            if (IsNamespaceMatch(fullName, ns))
+                return ns;
+        }
+        return null;
+    }
 
-        // Prefix match with dot separator
+    private static bool IsNamespaceMatch(string fullName, string oldNamespace)
+    {
+        if (fullName.Length == oldNamespace.Length)
+            return string.Equals(fullName, oldNamespace, StringComparison.Ordinal);
+
         return fullName.Length > oldNamespace.Length
             && fullName[oldNamespace.Length] == '.'
             && fullName.StartsWith(oldNamespace, StringComparison.Ordinal);
@@ -118,10 +115,9 @@ public class NamespaceMigrationAnalyzer : DiagnosticAnalyzer
 
     private static bool HasMatchingNamespace(string namespaceName)
     {
-        var nameSpan = namespaceName.AsSpan();
         foreach (var ns in OldNamespaces)
         {
-            if (IsNamespaceMatch(nameSpan, ns))
+            if (IsNamespaceMatch(namespaceName, ns))
                 return true;
         }
         return false;
