@@ -111,3 +111,7 @@ docs/.sass-cache/
 /.roslyn-mcp
 /CLAUDE.md
 /.mcp.json
+/src/.claude
+/src/.roslyn-mcp
+/src/.mcp.json
+/src/CLAUDE.md
