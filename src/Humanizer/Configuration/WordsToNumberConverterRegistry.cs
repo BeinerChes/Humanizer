@@ -3,8 +3,16 @@ namespace Humanizer;
 internal class WordsToNumberConverterRegistry : LocaliserRegistry<IWordsToNumberConverter>
 {
     public WordsToNumberConverterRegistry()
-        : base(culture => culture.TwoLetterISOLanguageName == "en"
-            ? new EnglishWordsToNumberConverter()
-            : new DefaultWordsToNumberConverter(culture)) =>
-             Register("en", _ => new EnglishWordsToNumberConverter());
+        : base(culture => culture.TwoLetterISOLanguageName switch
+        {
+            "en" => new EnglishWordsToNumberConverter(),
+            "es" => new SpanishWordsToNumberConverter(),
+            "pt" => new PortugueseWordsToNumberConverter(),
+            _ => new DefaultWordsToNumberConverter(culture)
+        })
+    {
+        Register("en", _ => new EnglishWordsToNumberConverter());
+        Register("es", _ => new SpanishWordsToNumberConverter());
+        Register("pt", _ => new PortugueseWordsToNumberConverter());
+    }
 }

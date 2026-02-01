@@ -145,8 +145,8 @@ public class WordsToNumberTests_GB
 public class WordsToNumberTests_NonEnglish
 {
     [Theory]
-    [InlineData("es-ES", "veinte")]
     [InlineData("fr-FR", "vingt")]
+    [InlineData("de-DE", "zwanzig")]
     public void ThrowsForNonEnglishWords(string cultureName, string word)
     {
         var culture = new CultureInfo(cultureName);

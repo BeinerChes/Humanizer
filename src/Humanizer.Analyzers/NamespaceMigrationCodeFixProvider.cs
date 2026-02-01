@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Composition;
 
@@ -15,22 +14,19 @@ public class NamespaceMigrationCodeFixProvider : CodeFixProvider
 {
     private const string Title = "Update to Humanizer namespace";
 
-    // Ordered by length (longest first) for optimal matching
-    private static readonly FrozenSet<string> OldNamespaces = FrozenSet.ToFrozenSet(
-        [
-            "Humanizer.Localisation.CollectionFormatters",
-            "Humanizer.Localisation.TimeToClockNotation",
-            "Humanizer.Localisation.DateToOrdinalWords",
-            "Humanizer.Localisation.NumberToWords",
-            "Humanizer.Localisation.Formatters",
-            "Humanizer.Localisation.Ordinalizers",
-            "Humanizer.DateTimeHumanizeStrategy",
-            "Humanizer.Configuration",
-            "Humanizer.Localisation",
-            "Humanizer.Inflections",
-            "Humanizer.Bytes"
-        ],
-        StringComparer.Ordinal);
+    private static readonly ImmutableHashSet<string> OldNamespaces = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "Humanizer.Localisation.CollectionFormatters",
+        "Humanizer.Localisation.TimeToClockNotation",
+        "Humanizer.Localisation.DateToOrdinalWords",
+        "Humanizer.Localisation.NumberToWords",
+        "Humanizer.Localisation.Formatters",
+        "Humanizer.Localisation.Ordinalizers",
+        "Humanizer.DateTimeHumanizeStrategy",
+        "Humanizer.Configuration",
+        "Humanizer.Localisation",
+        "Humanizer.Inflections",
+        "Humanizer.Bytes");
 
     public sealed override ImmutableArray<string> FixableDiagnosticIds => [NamespaceMigrationAnalyzer.DiagnosticId];
 
@@ -46,7 +42,6 @@ public class NamespaceMigrationCodeFixProvider : CodeFixProvider
         var diagnosticSpan = diagnostic.Location.SourceSpan;
         var node = root.FindNode(diagnosticSpan);
 
-        // The diagnostic is reported on the namespace name, so navigate up to the using directive
         var usingDirective = node.FirstAncestorOrSelf<UsingDirectiveSyntax>();
         if (usingDirective is not null)
         {
@@ -59,7 +54,6 @@ public class NamespaceMigrationCodeFixProvider : CodeFixProvider
             return;
         }
 
-        // Handle qualified names (e.g., Humanizer.Bytes.ByteSize)
         if (node is QualifiedNameSyntax qualifiedName)
         {
             context.RegisterCodeFix(
@@ -73,14 +67,13 @@ public class NamespaceMigrationCodeFixProvider : CodeFixProvider
 
     private static async Task<Document> ReplaceUsingDirectiveAsync(
         Document document,
-        UsingDirectiveSyntax usingDirective, 
+        UsingDirectiveSyntax usingDirective,
         CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         if (root is null)
             return document;
 
-        // Replace the namespace with "Humanizer"
         var newName = SyntaxFactory.IdentifierName("Humanizer");
         var newUsingDirective = usingDirective.WithName(newName);
 
@@ -94,23 +87,21 @@ public class NamespaceMigrationCodeFixProvider : CodeFixProvider
         if (root is null)
             return document;
 
-        // Find which old namespace this qualified name starts with
-        var fullName = qualifiedName.ToString().AsSpan();
-        ReadOnlySpan<char> matchedNamespace = default;
+        var fullName = qualifiedName.ToString();
+        string? matchedNamespace = null;
 
         foreach (var ns in OldNamespaces)
         {
-            if (IsNamespaceMatch(fullName, ns.AsSpan()))
+            if (IsNamespaceMatch(fullName, ns))
             {
-                matchedNamespace = ns.AsSpan();
+                matchedNamespace = ns;
                 break;
             }
         }
 
-        if (matchedNamespace.IsEmpty)
+        if (matchedNamespace == null)
             return document;
 
-        // Replace the old namespace prefix with "Humanizer"
         var newNameText = GetReplacementName(fullName, matchedNamespace);
 
         var newQualifiedName = SyntaxFactory.ParseName(newNameText)
@@ -121,36 +112,27 @@ public class NamespaceMigrationCodeFixProvider : CodeFixProvider
         return document.WithSyntaxRoot(updatedRoot);
     }
 
-    private static bool IsNamespaceMatch(ReadOnlySpan<char> fullName, ReadOnlySpan<char> oldNamespace)
+    private static bool IsNamespaceMatch(string fullName, string oldNamespace)
     {
-        // Exact match
         if (fullName.Length == oldNamespace.Length)
-            return fullName.Equals(oldNamespace, StringComparison.Ordinal);
+            return string.Equals(fullName, oldNamespace, StringComparison.Ordinal);
 
-        // Prefix match with dot separator
         return fullName.Length > oldNamespace.Length
             && fullName[oldNamespace.Length] == '.'
             && fullName.StartsWith(oldNamespace, StringComparison.Ordinal);
     }
 
-    private static string GetReplacementName(ReadOnlySpan<char> fullName, ReadOnlySpan<char> matchedNamespace)
+    private static string GetReplacementName(string fullName, string matchedNamespace)
     {
         if (fullName.Length == matchedNamespace.Length)
             return "Humanizer";
 
-        // Skip the matched namespace and the dot
         var startIndex = matchedNamespace.Length + 1;
 
         if (startIndex >= fullName.Length)
             return "Humanizer";
 
-        // Use modern string concatenation with spans
-        var remainder = fullName[startIndex..];
-
-#if NET10_0_OR_GREATER
-        return string.Concat("Humanizer.", remainder);
-#else
-        return string.Concat("Humanizer.", remainder.ToString());
-#endif
+        var remainder = fullName.Substring(startIndex);
+        return "Humanizer." + remainder;
     }
 }
