@@ -108,3 +108,6 @@ docs/.sass-cache/
 
 # BenchmarkDotNet artifacts
 **/BenchmarkDotNet.Artifacts/
+/.roslyn-mcp
+/CLAUDE.md
+/.mcp.json
